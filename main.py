@@ -88,10 +88,6 @@ async def send_main_menu(chat_id, state: FSMContext):
 
     await state.update_data(main_message_id=sent_message.message_id)
 
-    # data = await state.get_data()
-    # data["main_message_id"] = sent_message.message_id
-    # await state.set_data(data)
-
 
 # Обработчик команды /start
 @dp.message(Command("start"))
@@ -322,37 +318,37 @@ async def handle_token_input(message: types.Message, state: FSMContext):
 
     last_state = data.get("last_state")
 
-    if last_state == 'name':
+    # if last_state == 'name':
 
-        bot_name = data.get("name")
-        await bot.delete_message(chat_id, data.get("message_id"))
-        selected = user_selected_languages.get(chat_id, [])
-        if len(selected) > 0:
-            addition = f' Для языков {", ".join(list(filter(lambda x: x[1] == lang, flag_buttons))[0][0] for lang in selected)}'
-        else:
-            addition = ''
+    bot_name = data.get("name")
+    await bot.delete_message(chat_id, data.get("message_id"))
+    selected = user_selected_languages.get(chat_id, [])
+    if len(selected) > 0:
+        addition = f' Для языков {", ".join(list(filter(lambda x: x[1] == lang, flag_buttons))[0][0] for lang in selected)}'
+    else:
+        addition = ''
 
-        task = asyncio.create_task(change_bot_name(token, bot_name, selected))
+    task = asyncio.create_task(change_bot_name(token, bot_name, selected))
 
-        # Ожидаем завершения задач
-        result = await asyncio.gather(task)
+    # Ожидаем завершения задач
+    result = await asyncio.gather(task)
 
-        if result[0][0]:
-            result_text = f"✅ Успех! Название бота обновлено на: {bot_name}" + addition
+    if result[0][0]:
+        result_text = f"✅ Успех! Название бота обновлено на: {bot_name}" + addition
 
-        else:
+    else:
 
-            result_text = f"❌ Ошибка! Попробуйте ещё раз чуть позже. {result[0][1]}"
-        keyboard = create_inline_keyboard([InlineKeyboardButton(text="Меню", callback_data="main_menu")])
-        user_selected_languages[chat_id] = []
+        result_text = f"❌ Ошибка! Попробуйте ещё раз чуть позже. {result[0][1]}"
+    keyboard = create_inline_keyboard([InlineKeyboardButton(text="Меню", callback_data="main_menu")])
+    user_selected_languages[chat_id] = []
 
-        await bot.delete_message(chat_id, message.message_id)
+    await bot.delete_message(chat_id, message.message_id)
 
-        await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text)
-        sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
-                                                           reply_markup=keyboard)
+    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text)
+    sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
+                                                       reply_markup=keyboard)
 
-        await state.update_data(message_id=sent_message.message_id)
+    await state.update_data(message_id=sent_message.message_id)
 
     # Стираем id старого главного сообщения
     await state.update_data(main_message_id=None)
