@@ -1,18 +1,18 @@
 import asyncio
-import os
 import re
 
 from aiogram import F, types
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import CallbackQuery, ReactionTypeEmoji, InlineKeyboardButton
+from aiogram.types import CallbackQuery, ReactionTypeEmoji
 
 from flags import flag_buttons
 from flags_keyboard import flag_router, get_language_keyboard, user_selected_languages
-from headers import bot, dp
+from headers import bot, dp, scheduler
 from keyboards import *
-from manager import change_bot_name, change_bot_pic
+from manager import change_bot_name, set_chat_name_direct
+from timers import start_action, finish_action
 
 dp.include_router(flag_router)
 
@@ -21,24 +21,47 @@ class MyState(StatesGroup):
     menu = State()
     edit_name = State()
     edit_token = State()
-    edit_avatar = State()
+    # edit_avatar = State()
+    edit_name_chat_channel = State()
+    edit_channel_chat_id = State()
+
     ended = State()
 
 
 # Отмена действия
 @dp.callback_query(F.data == 'main_menu')
 async def cancel_action(call: types.CallbackQuery, state: FSMContext):
+    """
+
+    :param call:
+    :param state:
+    :return:
+    """
     await send_main_menu(call.from_user.id, state)
 
 
 # Главное меню
-async def send_main_menu(chat_id, state: FSMContext, message_id=None):
+async def send_main_menu(chat_id, state: FSMContext):
+    """
+
+    :param chat_id:
+    :param state:
+    :return:
+    """
+
     # удаляем старое главное и незавершенные сообщения
     data = await state.get_data()
+
     old_message_id = data.get("main_message_id", False)
     if old_message_id:
         try:
             await bot.delete_message(chat_id, old_message_id)
+        except:
+            pass
+    unfinised_form_message_id = data.get('form_message', False)
+    if unfinised_form_message_id:
+        try:
+            await bot.delete_message(chat_id, unfinised_form_message_id)
         except:
             pass
 
@@ -63,91 +86,121 @@ async def send_main_menu(chat_id, state: FSMContext, message_id=None):
 
     await state.set_state(MyState.menu)
 
-    data = await state.get_data()
-    data["main_message_id"] = sent_message.message_id
-    await state.set_data(data)
+    await state.update_data(main_message_id=sent_message.message_id)
+
+    # data = await state.get_data()
+    # data["main_message_id"] = sent_message.message_id
+    # await state.set_data(data)
 
 
 # Обработчик команды /start
 @dp.message(Command("start"))
 async def handle_start(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
+
     chat_id = message.chat.id
     # удаляем это сообщение пользователя
     try:
         await bot.delete_message(chat_id, message.message_id)
     except Exception:
         pass
-    # удаляем старое главное сообщение
-    data = await state.get_data()
-    old_message_id = data.get("main_message_id", False)
-    if old_message_id:
-        try:
-            await bot.delete_message(chat_id, old_message_id)
-        except Exception:
-            pass
-
     await send_main_menu(chat_id, state)
 
 
 # Форма ввода для изменения названия
 @dp.callback_query(F.data == 'edit_name')
 async def start_name_change(call: CallbackQuery, state: FSMContext):
+    """
+
+    :param call:
+    :param state:
+    :return:
+    """
     chat_id = call.message.chat.id
-    keyboard = create_inline_keyboard([
-        InlineKeyboardButton(text="Основное", callback_data="edit_name_simple"),
-        InlineKeyboardButton(text="МультиГео", callback_data="edit_name_geo")
-    ])
-    data = await state.get_data()
-    message_id = data.get("message_id", call.message.message_id)
+    keyboard = name_keyboard
+    message_id = call.message.message_id
     await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=name_type_question)
     sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id,
                                                        reply_markup=keyboard)
 
+    await state.update_data(message_id=sent_message.message_id)
+
     data = await state.get_data()
-    data["message_id"] = sent_message.message_id
-    await state.set_data(data)
+    await start_action(chat_id, data.get("main_message_id"), data.get("message_id"))
 
 
 # Запрашиваем языки
 @dp.callback_query(F.data == 'edit_name_geo')
 async def ask_for_lang(call: CallbackQuery, state: FSMContext):
-    keyboard = get_language_keyboard(user_selected_languages.get(call.from_user.id, None))
+    """
+
+    :param call:
+    :param state:
+    :return:
+    """
+    chat_id = call.from_user.id
+    keyboard = get_language_keyboard(user_selected_languages.get(chat_id, None))
     data = await state.get_data()
 
-    await bot.edit_message_text(chat_id=call.from_user.id, message_id=data.get('message_id'),
-                                text="Для каких языков устанавливаем название?")
-    sent_message = await bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=data.get('message_id'),
+    await bot.edit_message_text(chat_id=chat_id, message_id=data.get('main_message_id'),
+                                text=lang_type_question)
+    sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data.get('main_message_id'),
                                                        reply_markup=keyboard)
 
+    await state.update_data(form_message=sent_message.message_id)
+    await state.update_data(message_id=sent_message.message_id)
+
     data = await state.get_data()
-    data["message_id"] = sent_message.message_id
-    await state.set_data(data)
+    await start_action(chat_id, data.get("main_message_id"), data.get("message_id"))
 
 
 # Запрашиваем имя
-@dp.callback_query(F.data == 'edit_name_simple')
-async def ask_for_name(call, state: FSMContext, user_id=None):
+@dp.callback_query(F.data.in_({"edit_name_simple", "edit_name_chat_channel"}))
+async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None):
+    """
+
+    :param call:
+    :param state:
+    :param user_id:
+    :return:
+    """
+
     if user_id is None:
         user_id = call.from_user.id
-    text = "Пришли новое название:"
+
+    text = ask_for_new_name
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
-
     sent_message = await bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard)
+    await state.update_data(form_message=sent_message.message_id)
+    if call.data == "edit_name_simple":
+        await state.set_state(MyState.edit_name)
+    elif call.data == "edit_name_chat_channel":
+        await state.set_state(MyState.edit_name_chat_channel)
 
-    await state.set_state(MyState.edit_name)
+    await state.update_data(message_id=sent_message.message_id)
 
     data = await state.get_data()
-    data["message_id"] = sent_message.message_id
-    await state.set_data(data)
+    await start_action(user_id, data.get("main_message_id"), data.get("message_id"))
 
 
-# Проверка и сохранение нового названия
-@dp.message(StateFilter(MyState.edit_name))
+# Проверка и сохранение нового названия бота/чата/канала
+@dp.message(StateFilter(MyState.edit_name_chat_channel, MyState.edit_name))
 async def handle_name_input(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
     chat_id = message.chat.id
     text = message.text.strip()
     if not (1 <= len(text) <= 64):
-        await message.reply("Некорректное название! Используй только текст до 64 символов.")
+        await message.reply(symbol_limit)
         await ask_for_name(None, state, chat_id)
         return
     # Успешно! Дальше просим токен
@@ -158,38 +211,110 @@ async def handle_name_input(message: types.Message, state: FSMContext):
     await bot.delete_message(chat_id, last_bot_msg)
     await bot.delete_message(chat_id, message.message_id)
 
-    data = await state.get_data()
-    data["name"] = text
-    await state.set_data(data)
+    await state.update_data(name=text)
 
     # Запоминаем, для чего нам token
-    data = await state.get_data()
-    data["last_state"] = 'name'
-    await state.set_data(data)
+    current_state = await state.get_state()
+    if current_state == MyState.edit_name:
+        await state.update_data(last_state='name')
+        await ask_for_token(chat_id, state)
+    elif current_state == MyState.edit_name_chat_channel:
+        await state.update_data(last_state='chat_channel_name')
+        await ask_for_chat_channel_id(chat_id, state)
 
-    await ask_for_token(chat_id, state)
+
+# Запрос id чата, канала
+async def ask_for_chat_channel_id(chat_id, state: FSMContext):
+    """
+
+    :param chat_id:
+    :param state:
+    :return:
+    """
+    text = ask_for_chat_or_channel_id
+    keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
+    sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard)
+
+    await state.set_state(MyState.edit_channel_chat_id)
+
+    await state.update_data(form_message=sent_message.message_id)
+    await state.update_data(message_id=sent_message.message_id)
+
+    data = await state.get_data()
+    await start_action(chat_id, data.get("main_message_id"), data.get("message_id"))
+
+
+@dp.message(StateFilter(MyState.edit_channel_chat_id))
+async def handle_id_input(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
+    chat_id = message.chat.id
+
+    targer_chat_id = message.text.strip()
+
+    data = await state.get_data()
+    new_name = data.get("name")
+
+    await bot.delete_message(chat_id, message.message_id)
+
+    last_bot_msg = data.get("message_id")
+    if last_bot_msg:
+        await bot.delete_message(chat_id, last_bot_msg)
+
+    result, msg = await set_chat_name_direct(bot, targer_chat_id, new_name)
+
+    keyboard = create_inline_keyboard([InlineKeyboardButton(text="Меню", callback_data="main_menu")])
+
+    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=msg)
+    sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
+                                                       reply_markup=keyboard)
+    await state.update_data(message_id=sent_message.message_id)
+
+    # Стираем id старого главного сообщения
+    await state.update_data(main_message_id=None)
+    await state.set_state(MyState.ended)
+
+    await finish_action(chat_id)
 
 
 # Запрос токена
 async def ask_for_token(chat_id, state: FSMContext):
-    text = "Пришли токен бота:"
+    """
+
+    :param chat_id:
+    :param state:
+    :return:
+    """
+    text = ask_bot_token
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
     sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard)
 
     await state.set_state(MyState.edit_token)
 
+    await state.update_data(form_message=sent_message.message_id)
+    await state.update_data(message_id=sent_message.message_id)
+
     data = await state.get_data()
-    data["message_id"] = sent_message.message_id
-    await state.set_data(data)
+    await start_action(chat_id, data.get("main_message_id"), data.get("message_id"))
 
 
 # Проверка токена
 @dp.message(StateFilter(MyState.edit_token))
 async def handle_token_input(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
     chat_id = message.chat.id
     token = message.text.strip()
     if not re.match(r'^\d{10}:[A-Za-z0-9_-]{35}$', token):
-        await message.reply("Некорректный токен! Актуальный можно получить в @Botfather.")
+        await message.reply(incorrect_token)
         await ask_for_token(chat_id, state)
         return
 
@@ -223,18 +348,20 @@ async def handle_token_input(message: types.Message, state: FSMContext):
 
         await bot.delete_message(chat_id, message.message_id)
 
-        data = await state.get_data()
         await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text)
         sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                                            reply_markup=keyboard)
 
-        data = await state.get_data()
-        data["message_id"] = sent_message.message_id
-        await state.set_data(data)
+        await state.update_data(message_id=sent_message.message_id)
 
-        await state.set_state(MyState.ended)
+    # Стираем id старого главного сообщения
+    await state.update_data(main_message_id=None)
+    await state.set_state(MyState.ended)
 
-    elif last_state == 'avatar':
+    #
+    await finish_action(chat_id)
+    '''elif last_state == 'avatar':
+        pass
         photo_id = data.get("photo")
         file = await bot.get_file(photo_id)
         file_name = os.path.basename(file.file_path)
@@ -248,25 +375,36 @@ async def handle_token_input(message: types.Message, state: FSMContext):
 
         # Ожидаем завершения задач
         result = await asyncio.gather(task)
-        print(result)
-        await state.set_state(MyState.ended)
+        await state.set_state(MyState.ended)'''
 
 
 # Отмена действия
 @dp.callback_query(F.data == 'cancel')
 async def cancel_action(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+
+    :param callback_query:
+    :param state:
+    :return:
+    """
     chat_id = callback_query.message.chat.id
     data = await state.get_data()
     message_id = data.get("message_id", False)
     if message_id:
         await bot.delete_message(chat_id, message_id)
     await state.set_state(MyState.ended)
-    await send_main_menu(chat_id, state)
+    # await send_main_menu(chat_id, state)
 
 
 # Обработчик произвольных сообщений
 @dp.message()
 async def handle_any_message(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
     chat_id = message.chat.id
     current_state = await state.get_state()
     if current_state in [MyState.edit_name.state, MyState.edit_token.state]:
@@ -285,13 +423,14 @@ async def handle_any_message(message: types.Message, state: FSMContext):
     except:
         pass
 
-    emoji = ReactionTypeEmoji(emoji='🤔')
+    emoji = ReactionTypeEmoji(emoji=what_emodji)
     await message.react([emoji])
     await send_main_menu(chat_id, state)
 
 
 # Запуск таймеров через APScheduler
 async def local_startup():
+    scheduler.start()
     await dp.start_polling(bot)
 
 

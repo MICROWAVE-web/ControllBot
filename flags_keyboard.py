@@ -5,7 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from flags import flag_buttons
 from headers import bot
-from keyboards import create_inline_keyboard
+from keyboards import name_keyboard
 
 # Состояние для хранения выбранных языков
 user_selected_languages = {}
@@ -92,10 +92,7 @@ async def select_all(callback_query: types.CallbackQuery):
 async def go_back(callback_query: types.CallbackQuery, state: FSMContext):
     chat_id = callback_query.from_user.id
     data = await state.get_data()
-    keyboard = create_inline_keyboard([
-        InlineKeyboardButton(text="Основное", callback_data="edit_name_simple"),
-        InlineKeyboardButton(text="МультиГео", callback_data="edit_name_geo")
-    ])
+    keyboard = name_keyboard
     await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text="Какое название редактируем?")
     await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                         reply_markup=keyboard)
