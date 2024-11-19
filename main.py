@@ -127,7 +127,7 @@ async def start_name_change(call: CallbackQuery, state: FSMContext):
     await state.update_data(message_id=sent_message.message_id)
 
     data = await state.get_data()
-    await start_action(chat_id, data.get("main_message_id"), data.get("message_id"))
+    await start_action(chat_id, data.get("main_message_id"), None)
 
 
 # Запрашиваем языки
