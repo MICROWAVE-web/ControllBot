@@ -100,11 +100,6 @@ async def handle_start(message: types.Message, state: FSMContext):
     """
 
     chat_id = message.chat.id
-    # удаляем это сообщение пользователя
-    try:
-        await bot.delete_message(chat_id, message.message_id)
-    except Exception:
-        pass
     await send_main_menu(chat_id, state)
 
 

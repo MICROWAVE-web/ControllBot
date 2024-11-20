@@ -12,7 +12,7 @@ name_keyboard = create_inline_keyboard([
     InlineKeyboardButton(text="Канал · Чат", callback_data="edit_name_chat_channel")
 ])
 
-start_message = "Я могу помочь тебе управлять твоими Telegram ботами, каналами и чатами удаленно.\n<a href='google.com'>Help</a> · <a href='google.com'>FAQ</a> · <a href='google.com'>Tools</a>"
+start_message = "Я могу помочь тебе управлять твоими Telegram ботами, каналами и чатами удаленно.\s<a href='google.com'>Help</a> · <a href='google.com'>FAQ</a> · <a href='google.com'>Tools</a>"
 
 cancel_text = 'Отменить 🚫'
 
