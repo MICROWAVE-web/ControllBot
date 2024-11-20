@@ -69,7 +69,7 @@ async def is_bot_admin(bot, chat_id: int) -> bool:
 
 
 async def set_chat_name_direct(bot, chat_id, new_name):
-    if not chat_id.is_digit():
+    if not chat_id.isdigit():
         return False, "Некорректный ID! Формат: 123456789 или -100123456789"
 
     try:
