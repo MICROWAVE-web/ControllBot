@@ -343,7 +343,7 @@ async def handle_token_input(message: types.Message, state: FSMContext):
     result = await asyncio.gather(task)
 
     if result[0][0]:
-        result_text = f"✅ Успех! Название бота обновлено на: {bot_name}" + addition
+        result_text = f"✅ Успех! Название <a href='{result[0][1]}'>бота</a> обновлено на: {bot_name}" + addition
 
     else:
 
@@ -353,7 +353,7 @@ async def handle_token_input(message: types.Message, state: FSMContext):
 
     await bot.delete_message(chat_id, message.message_id)
 
-    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text)
+    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text, parse_mode="html")
     sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                                        reply_markup=keyboard)
 

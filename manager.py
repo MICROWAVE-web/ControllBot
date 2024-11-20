@@ -10,6 +10,9 @@ from flags import flag_buttons
 async def change_bot_name(token, name, selected):
     try:
         async with Bot(token=token) as bot:
+            bot_info = await bot.get_me()
+            bot_link = f"https://t.me/{bot_info.username}"
+
             errors = []
             reason = 'unknown'
             if len(selected) > 0:
@@ -27,7 +30,7 @@ async def change_bot_name(token, name, selected):
             else:
                 await bot.set_my_name(name=name)
             if len(errors) == 0:
-                return True, ""
+                return True, bot_link
             elif 0 < len(errors) < len(selected):
                 if reason == 'wait':
                     msg = f'Не удалось для: {", ".join(list(filter(lambda x: x[1] == lang, flag_buttons))[0][0] for lang in errors)}. Вам нужно подождать 24 часа, прежде чем снова менять имя этого бота'
