@@ -148,7 +148,7 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
     sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data.get('main_message_id'),
                                                        reply_markup=keyboard)
 
-    await state.update_data(form_message=sent_message.message_id)
+    # await state.update_data(form_message=sent_message.message_id)
     await state.update_data(message_id=sent_message.message_id)
 
     data = await state.get_data()
