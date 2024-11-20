@@ -286,8 +286,8 @@ async def ask_for_token(chat_id, state: FSMContext, false_msg=""):
     :return:
     """
     text = ask_bot_token
-    keyboard = create_inline_keyboard([InlineKeyboardButton(text=false_msg + cancel_text, callback_data="cancel")])
-    sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard)
+    keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
+    sent_message = await bot.send_message(chat_id, false_msg + text, reply_markup=keyboard)
 
     await state.set_state(MyState.edit_token)
 
@@ -317,8 +317,6 @@ async def handle_token_input(message: types.Message, state: FSMContext):
         # await message.reply(incorrect_token)
         await ask_for_token(chat_id, state, incorrect_token)
         return
-
-
 
     # last_state = data.get("last_state")
 
