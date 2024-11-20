@@ -55,7 +55,7 @@ async def send_main_menu(chat_id, state: FSMContext):
     old_message_id = data.get("main_message_id", False)
     if old_message_id:
         try:
-            await bot.delete_message(chat_id, old_message_id)
+            await bot.edit_message_text(chat_id=chat_id, message_id=old_message_id, text='Действие прервано')
         except:
             pass
     unfinised_form_message_id = data.get('form_message', False)
