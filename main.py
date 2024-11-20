@@ -267,7 +267,6 @@ async def handle_id_input(message: types.Message, state: FSMContext):
 
     result, msg = await set_chat_name_direct(bot, targer_chat_id, new_name)
     if result is False:
-        await bot.delete_message(chat_id, data.get("form_message"))
         await ask_for_chat_channel_id(chat_id, state, incorrect_id)
         return
 
