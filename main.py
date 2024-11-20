@@ -82,7 +82,7 @@ async def send_main_menu(chat_id, state: FSMContext):
         InlineKeyboardButton(text="Название", callback_data="edit_name"),
         # InlineKeyboardButton(text="Аватар", callback_data="edit_avatar")
     ])
-    sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard)
+    sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard, parse_mode='html')
 
     await state.set_state(MyState.menu)
 
