@@ -223,16 +223,17 @@ async def handle_name_input(message: types.Message, state: FSMContext):
 
 
 # Запрос id чата, канала
-async def ask_for_chat_channel_id(chat_id, state: FSMContext):
+async def ask_for_chat_channel_id(chat_id, state: FSMContext, false_msg=""):
     """
 
+    :param false_msg:
     :param chat_id:
     :param state:
     :return:
     """
     text = ask_for_chat_or_channel_id
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
-    sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard)
+    sent_message = await bot.send_message(chat_id, false_msg + text, reply_markup=keyboard)
 
     await state.set_state(MyState.edit_channel_chat_id)
 
@@ -265,6 +266,10 @@ async def handle_id_input(message: types.Message, state: FSMContext):
         await bot.delete_message(chat_id, last_bot_msg)
 
     result, msg = await set_chat_name_direct(bot, targer_chat_id, new_name)
+    if result is False:
+        await bot.delete_message(chat_id, data.get("form_message"))
+        await ask_for_chat_channel_id(chat_id, state, incorrect_id)
+        return
 
     keyboard = create_inline_keyboard([InlineKeyboardButton(text="Меню", callback_data="main_menu")])
 
