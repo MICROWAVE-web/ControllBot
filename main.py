@@ -157,9 +157,10 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
 
 # Запрашиваем имя
 @dp.callback_query(F.data.in_({"edit_name_simple", "edit_name_chat_channel"}))
-async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None):
+async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None, false_msg=""):
     """
 
+    :param false_msg:
     :param call:
     :param state:
     :param user_id:
@@ -171,7 +172,7 @@ async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None):
 
     text = ask_for_new_name
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
-    sent_message = await bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard)
+    sent_message = await bot.send_message(chat_id=user_id, text=false_msg + text, reply_markup=keyboard)
     await state.update_data(form_message=sent_message.message_id)
     if call.data == "edit_name_simple":
         await state.set_state(MyState.edit_name)
@@ -195,13 +196,15 @@ async def handle_name_input(message: types.Message, state: FSMContext):
     """
     chat_id = message.chat.id
     text = message.text.strip()
+    data = await state.get_data()
+
     if not (1 <= len(text) <= 64):
-        await message.reply(symbol_limit)
-        await ask_for_name(None, state, chat_id)
+        await bot.delete_message(chat_id, message.message_id)
+        await bot.delete_message(chat_id, data.get("form_message"))
+        await ask_for_name(None, state, chat_id, symbol_limit)
         return
     # Успешно! Дальше просим токен
 
-    data = await state.get_data()
     last_bot_msg = data.get("message_id")
 
     await bot.delete_message(chat_id, last_bot_msg)
