@@ -73,23 +73,23 @@ async def is_bot_admin(bot, chat_id: int) -> bool:
 
 async def set_chat_name_direct(bot, chat_id, new_name):
     if not chat_id.isdigit():
-        return False, "Некорректный ID! Формат: 123456789 или -100123456789"
+        return False, "Некорректный ID! Формат: 123456789 или -100123456789\n\n"
 
     try:
 
         # Проверяем, является ли бот администратором в указанном чате
         if not await is_bot_admin(bot, chat_id):
-            return False, "Я не администратор в указанном чате или у меня нет прав изменять информацию."
+            return False, "Я не администратор в указанном чате или у меня нет прав изменять информацию.\n\n"
 
         # Пытаемся изменить название
         await bot.set_chat_title(chat_id, new_name)
         return True, f"✅ Успех! Название чата с ID `{chat_id}` успешно изменено на: {new_name}"
 
     except ValueError:
-        return False, "ID чата должен быть числом. Проверьте ввод."
+        return False, "ID чата должен быть числом. Проверьте ввод.\n\n"
     except TelegramBadRequest:
-        return False, f"Не удалось изменить название"
+        return False, f"Не удалось изменить название\n\n"
     except TelegramForbiddenError:
-        return False, "У меня нет доступа к указанному чату. Убедитесь, что бот добавлен и является администратором."
+        return False, "У меня нет доступа к указанному чату. Убедитесь, что бот добавлен и является администратором.\n\n"
     except Exception:
-        return False, f"Неизвестная ошибка"
+        return False, f"Неизвестная ошибка\n\n"

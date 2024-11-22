@@ -289,7 +289,7 @@ async def handle_id_input(message: types.Message, state: FSMContext):
 
     result, msg = await set_chat_name_direct(bot, targer_chat_id, new_name)
     if result is False:
-        await ask_for_chat_channel_id(chat_id, state, incorrect_id)
+        await ask_for_chat_channel_id(chat_id, state, msg)
         return
 
     keyboard = create_inline_keyboard([InlineKeyboardButton(text="Меню", callback_data="main_menu")])
