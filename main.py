@@ -28,6 +28,24 @@ class MyState(StatesGroup):
     ended = State()
 
 
+# Назад к меню
+@dp.callback_query(F.data == 'back_to_menu')
+async def back_to_menu(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    message_id = data.get("main_message_id", False)
+    if message_id is False:
+        return
+
+    text = start_message
+    keyboard = create_inline_keyboard([
+        InlineKeyboardButton(text="Название", callback_data="edit_name"),
+        # InlineKeyboardButton(text="Аватар", callback_data="edit_avatar")
+    ])
+    await bot.edit_message_text(chat_id=call.from_user.id, message_id=message_id, text=text, parse_mode='html')
+    await bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=message_id,
+                                        reply_markup=keyboard)
+
+
 # Отмена действия
 @dp.callback_query(F.data == 'main_menu')
 async def cancel_action(call: types.CallbackQuery, state: FSMContext):
@@ -152,7 +170,7 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
 
 # Запрашиваем имя
 @dp.callback_query(F.data.in_({"edit_name_simple", "edit_name_chat_channel"}))
-async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None, false_msg=""):
+async def ask_for_name(call, state: FSMContext, user_id=None, false_msg="", current_state=None):
     """
 
     :param false_msg:
@@ -165,15 +183,18 @@ async def ask_for_name(call: CallbackQuery, state: FSMContext, user_id=None, fal
     if user_id is None:
         user_id = call.from_user.id
 
+    if current_state is None:
+        if call.data == "edit_name_simple":
+            await state.set_state(MyState.edit_name)
+        elif call.data == "edit_name_chat_channel":
+            await state.set_state(MyState.edit_name_chat_channel)
+    else:
+        await state.set_state(current_state)
+
     text = ask_for_new_name
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
     sent_message = await bot.send_message(chat_id=user_id, text=false_msg + text, reply_markup=keyboard)
     await state.update_data(form_message=sent_message.message_id)
-    if call.data == "edit_name_simple":
-        await state.set_state(MyState.edit_name)
-    elif call.data == "edit_name_chat_channel":
-        await state.set_state(MyState.edit_name_chat_channel)
-
     await state.update_data(message_id=sent_message.message_id)
 
     data = await state.get_data()
@@ -192,12 +213,19 @@ async def handle_name_input(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     text = message.text.strip()
     data = await state.get_data()
+    current_state = await state.get_state()
 
-    if not (1 <= len(text) <= 64):
+    if current_state == MyState.edit_name and not (1 <= len(text) <= 64):
         await bot.delete_message(chat_id, message.message_id)
         await bot.delete_message(chat_id, data.get("form_message"))
-        await ask_for_name(None, state, chat_id, symbol_limit)
+        await ask_for_name(None, state, chat_id, symbol_limit(64), current_state)
         return
+    elif current_state == MyState.edit_name_chat_channel and not (1 <= len(text) <= 255):
+        await bot.delete_message(chat_id, message.message_id)
+        await bot.delete_message(chat_id, data.get("form_message"))
+        await ask_for_name(None, state, chat_id, symbol_limit(255), current_state)
+        return
+
     # Успешно! Дальше просим токен
 
     last_bot_msg = data.get("message_id")
@@ -208,7 +236,6 @@ async def handle_name_input(message: types.Message, state: FSMContext):
     await state.update_data(name=text)
 
     # Запоминаем, для чего нам token
-    current_state = await state.get_state()
     if current_state == MyState.edit_name:
         await state.update_data(last_state='name')
         await ask_for_token(chat_id, state)
@@ -348,7 +375,8 @@ async def handle_token_input(message: types.Message, state: FSMContext):
 
     await bot.delete_message(chat_id, message.message_id)
 
-    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text, parse_mode="html")
+    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=result_text,
+                                parse_mode="html")
     sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                                        reply_markup=keyboard)
 
