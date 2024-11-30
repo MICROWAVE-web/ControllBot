@@ -7,7 +7,7 @@ from aiogram.types import FSInputFile
 from flags import flag_buttons
 
 
-async def change_bot_name(token, name, selected):
+async def change_bot_data(token, data, selected, type=None):
     try:
         async with Bot(token=token) as bot:
             bot_info = await bot.get_me()
@@ -18,17 +18,30 @@ async def change_bot_name(token, name, selected):
             if len(selected) > 0:
                 for lang in selected:
                     try:
-                        await bot.set_my_name(
-                            name=name,
-                            language_code=lang
-                        )
+                        if type == 'name':
+                            await bot.set_my_name(
+                                name=data,
+                                language_code=lang
+                            )
+                        elif type == 'desc':
+                            await bot.set_my_description(
+                                description=data,
+                                language_code=lang
+                            )
                     except TelegramRetryAfter:
                         errors.append(errors)
                         reason = 'wait'
                     except Exception:
                         errors.append(errors)
             else:
-                await bot.set_my_name(name=name)
+                if type == 'name':
+                    await bot.set_my_name(
+                        name=data,
+                    )
+                elif type == 'desc':
+                    await bot.set_my_description(
+                        description=data,
+                    )
             if len(errors) == 0:
                 return True, bot_link
             elif 0 < len(errors) < len(selected):

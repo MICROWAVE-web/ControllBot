@@ -14,7 +14,7 @@ flag_router = Router()
 
 
 # Функция для создания клавиатуры
-def get_language_keyboard(selected_languages=None):
+def get_language_keyboard(selected_languages=None, change_type=None):
     if selected_languages is None:
         selected_languages = []
 
@@ -38,7 +38,7 @@ def get_language_keyboard(selected_languages=None):
     if len(selected_languages) > 0:
         keyboard_builder.row(
             InlineKeyboardButton(text="‹ Назад", callback_data="go_back"),
-            InlineKeyboardButton(text="Далее ››", callback_data="edit_name_simple")
+            InlineKeyboardButton(text="Далее ››", callback_data="edit_name_simple") if change_type == 'name' else InlineKeyboardButton(text="Далее ››", callback_data="edit_description_simple")
         )
     else:
         keyboard_builder.row(

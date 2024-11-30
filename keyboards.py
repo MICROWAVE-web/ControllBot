@@ -22,16 +22,27 @@ name_keyboard = create_inline_keyboard(
     ]
 )
 
+desc_keyboard = create_inline_keyboard(
+    [
+        InlineKeyboardButton(text="Основное", callback_data="edit_description_simple"),
+        InlineKeyboardButton(text="МультиГео", callback_data="edit_description_geo"),
+        InlineKeyboardButton(text="< Назад", callback_data="back_to_menu"),
+    ]
+)
+
 start_message = "Я могу помочь тебе управлять твоими Telegram ботами, каналами и чатами удаленно.\n<a href='google.com'>Help</a> · <a href='google.com'>FAQ</a> · <a href='google.com'>Tools</a>"
 
 cancel_text = 'Отменить 🚫'
 
 name_type_question = "Какое название редактируем?"
 
-lang_type_question = "Для каких языков устанавливаем название?"
+desc_type_question = "Какое название редактируем?"
+
+lang_type_question = "Для каких языков устанавливаем?"
 
 ask_for_new_name = "Пришли новое название:"
 
+ask_for_new_desc = "Пришли новое описание:"
 
 def symbol_limit(limit):
     return f"Некорректное название! Используй только текст до {limit} символов.\n\n"
