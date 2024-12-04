@@ -5,7 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from flags import flag_buttons
 from headers import bot
-from keyboards import name_keyboard
+from keyboards import name_keyboard, desc_keyboard, name_type_question, desc_type_question
 
 # Состояние для хранения выбранных языков
 user_selected_languages = {}
@@ -37,12 +37,12 @@ def get_language_keyboard(selected_languages=None, change_type=None):
     )
     if len(selected_languages) > 0:
         keyboard_builder.row(
-            InlineKeyboardButton(text="‹ Назад", callback_data="go_back"),
+            InlineKeyboardButton(text="‹ Назад", callback_data=f"go_back_{change_type}"),
             InlineKeyboardButton(text="Далее ››", callback_data="edit_name_simple") if change_type == 'name' else InlineKeyboardButton(text="Далее ››", callback_data="edit_description_simple")
         )
     else:
         keyboard_builder.row(
-            InlineKeyboardButton(text="‹ Назад", callback_data="go_back"),
+            InlineKeyboardButton(text="‹ Назад", callback_data=f"go_back_{change_type}"),
         )
 
     return keyboard_builder.as_markup()
@@ -88,12 +88,18 @@ async def select_all(callback_query: types.CallbackQuery):
 
 
 # Кнопки назад/далее
-@flag_router.callback_query(F.data == "go_back")
+@flag_router.callback_query(F.data.startswith("go_back"))
 async def go_back(callback_query: types.CallbackQuery, state: FSMContext):
+    change_type = callback_query.data.split("_")[-1]
     chat_id = callback_query.from_user.id
     data = await state.get_data()
-    keyboard = name_keyboard
-    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text="Какое название редактируем?")
+    if change_type == 'name':
+        keyboard = name_keyboard
+        prase = name_type_question
+    else:
+        keyboard = desc_keyboard
+        prase = desc_type_question
+    await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=prase)
     await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                         reply_markup=keyboard)
 

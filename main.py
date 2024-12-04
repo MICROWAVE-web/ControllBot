@@ -171,31 +171,6 @@ async def start_desc_change(call: CallbackQuery, state: FSMContext):
 
 
 # Запрашиваем языки
-@dp.callback_query(F.data == 'edit_name_geo')
-async def ask_for_lang(call: CallbackQuery, state: FSMContext):
-    """
-
-    :param call:
-    :param state:
-    :return:
-    """
-    chat_id = call.from_user.id
-    keyboard = get_language_keyboard(user_selected_languages.get(chat_id, None))
-    data = await state.get_data()
-
-    await bot.edit_message_text(chat_id=chat_id, message_id=data.get('main_message_id'),
-                                text=lang_type_question)
-    sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data.get('main_message_id'),
-                                                       reply_markup=keyboard)
-
-    # await state.update_data(form_message=sent_message.message_id)
-    await state.update_data(message_id=sent_message.message_id)
-
-    data = await state.get_data()
-    await start_action(chat_id, data.get("main_message_id"), None)
-
-
-# Запрашиваем языки
 @dp.callback_query(F.data.in_({"edit_name_geo", "edit_description_geo"}))
 async def ask_for_lang(call: CallbackQuery, state: FSMContext):
     """
@@ -216,7 +191,7 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
     await bot.edit_message_text(chat_id=chat_id, message_id=data.get('main_message_id'),
-                                text=lang_type_question)
+                                text=lang_type_question(change_type))
     sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data.get('main_message_id'),
                                                        reply_markup=keyboard)
 
