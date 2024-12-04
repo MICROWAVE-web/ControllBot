@@ -186,7 +186,8 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
     else:
         change_type = 'description'
 
-    keyboard = get_language_keyboard(user_selected_languages.get(chat_id, None), change_type)
+    user_id = call.from_user.id
+    keyboard = get_language_keyboard(user_id, user_selected_languages.get(chat_id, None), change_type)
 
     data = await state.get_data()
 

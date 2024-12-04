@@ -10,13 +10,22 @@ from keyboards import name_keyboard, desc_keyboard, name_type_question, desc_typ
 # Состояние для хранения выбранных языков
 user_selected_languages = {}
 
+# Состояние для хранения выбранного типа формы (name/desc)
+user_selected_type = {}
+
 flag_router = Router()
 
 
 # Функция для создания клавиатуры
-def get_language_keyboard(selected_languages=None, change_type=None):
+def get_language_keyboard(user_id, selected_languages=None, change_type=None):
+
     if selected_languages is None:
         selected_languages = []
+
+    if change_type is not None:
+        user_selected_type[user_id] = change_type
+    else:
+        change_type = user_selected_type.get(user_id)
 
     # Create InlineKeyboardBuilder
     keyboard_builder = InlineKeyboardBuilder()
@@ -35,6 +44,7 @@ def get_language_keyboard(selected_languages=None, change_type=None):
         InlineKeyboardButton(text="Очистить выбор", callback_data="clear_selection"),
         InlineKeyboardButton(text="Выбрать все", callback_data="select_all")
     )
+
     if len(selected_languages) > 0:
         keyboard_builder.row(
             InlineKeyboardButton(text="‹ Назад", callback_data=f"go_back_{change_type}"),
@@ -65,7 +75,7 @@ async def toggle_language(callback_query: types.CallbackQuery):
         user_selected_languages[user_id].append(lang_code)
 
     # Обновляем клавиатуру
-    keyboard = get_language_keyboard(user_selected_languages[user_id])
+    keyboard = get_language_keyboard(user_id, user_selected_languages[user_id])
     await callback_query.message.edit_reply_markup(reply_markup=keyboard)
 
 
@@ -74,7 +84,7 @@ async def toggle_language(callback_query: types.CallbackQuery):
 async def clear_selection(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     user_selected_languages[user_id] = []
-    keyboard = get_language_keyboard(user_selected_languages[user_id])
+    keyboard = get_language_keyboard(user_id, user_selected_languages[user_id])
     await callback_query.message.edit_reply_markup(reply_markup=keyboard)
 
 
@@ -83,7 +93,7 @@ async def clear_selection(callback_query: types.CallbackQuery):
 async def select_all(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     user_selected_languages[user_id] = [code for _, code in flag_buttons]
-    keyboard = get_language_keyboard(user_selected_languages[user_id])
+    keyboard = get_language_keyboard(user_id, user_selected_languages[user_id])
     await callback_query.message.edit_reply_markup(reply_markup=keyboard)
 
 
@@ -99,6 +109,11 @@ async def go_back(callback_query: types.CallbackQuery, state: FSMContext):
     else:
         keyboard = desc_keyboard
         prase = desc_type_question
+
+    # Очистка выбранного типа
+    if callback_query.from_user.id in user_selected_type:
+        del user_selected_type[callback_query.from_user.id]
+
     await bot.edit_message_text(chat_id=chat_id, message_id=data['main_message_id'], text=prase)
     await bot.edit_message_reply_markup(chat_id=chat_id, message_id=data['main_message_id'],
                                         reply_markup=keyboard)
