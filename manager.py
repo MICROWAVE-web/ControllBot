@@ -2,12 +2,21 @@ import traceback
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, BotCommand
 
 from flags import flag_buttons
 
 
 async def change_bot_data(token, data, selected, type=None):
+    def extract_commands(commands_message):
+        lines = commands_message.split("\n")
+
+        commands = []
+        for line in lines:
+            command, description = line.split(" - ")
+            commands.append(BotCommand(command=command, description=description))
+        return commands
+
     try:
         async with Bot(token=token) as bot:
             bot_info = await bot.get_me()
@@ -41,6 +50,10 @@ async def change_bot_data(token, data, selected, type=None):
                 elif type == 'desc':
                     await bot.set_my_description(
                         description=data,
+                    )
+                elif type == 'commands':
+                    await bot.set_my_commands(
+                        commands=extract_commands(data),
                     )
             if len(errors) == 0:
                 return True, bot_link

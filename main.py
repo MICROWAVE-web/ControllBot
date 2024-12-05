@@ -22,6 +22,7 @@ class MyState(StatesGroup):
 
     edit_name = State()
     edit_description = State()
+    edit_commands = State()
 
     edit_token = State()
     # edit_avatar = State()
@@ -40,11 +41,7 @@ async def back_to_menu(call: types.CallbackQuery, state: FSMContext):
         return
 
     text = start_message
-    keyboard = create_inline_keyboard([
-        InlineKeyboardButton(text="Название", callback_data="edit_name"),
-        InlineKeyboardButton(text="Описание", callback_data="edit_description"),
-        # InlineKeyboardButton(text="Аватар", callback_data="edit_avatar")
-    ])
+    keyboard = create_keyboard_menu()
     await bot.edit_message_text(chat_id=call.from_user.id, message_id=message_id, text=text, parse_mode='html')
     await bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=message_id,
                                         reply_markup=keyboard)
@@ -100,11 +97,7 @@ async def send_main_menu(chat_id, state: FSMContext):
         pass
 
     text = start_message
-    keyboard = create_inline_keyboard([
-        InlineKeyboardButton(text="Название", callback_data="edit_name"),
-        InlineKeyboardButton(text="Описание", callback_data="edit_description"),
-        # InlineKeyboardButton(text="Аватар", callback_data="edit_avatar")
-    ])
+    keyboard = create_keyboard_menu()
     sent_message = await bot.send_message(chat_id, text, reply_markup=keyboard, parse_mode='html')
 
     await state.set_state(MyState.menu)
@@ -170,6 +163,55 @@ async def start_desc_change(call: CallbackQuery, state: FSMContext):
     await start_action(chat_id, data.get("main_message_id"), None)
 
 
+# Форма ввода для изменения описания
+@dp.callback_query(F.data == 'edit_commands')
+async def start_command_change(call: CallbackQuery, state: FSMContext):
+    """
+
+    :param call:
+    :param state:
+    :return:
+    """
+    chat_id = call.message.chat.id
+    keyboard = command_keyboard
+    message_id = call.message.message_id
+    await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=commands_type_question)
+    sent_message = await bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id,
+                                                       reply_markup=keyboard)
+
+    await state.update_data(message_id=sent_message.message_id)
+
+    data = await state.get_data()
+    await start_action(chat_id, data.get("main_message_id"), None)
+
+
+# Запрашиваем команды
+@dp.callback_query(F.data.in_({"edit_commands_simple"}))
+async def ask_for_commands(call: CallbackQuery, state: FSMContext, user_id=None, false_msg=""):
+    """
+
+    :param false_msg:
+    :param call:
+    :param state:
+    :param user_id:
+    :return:
+    """
+
+    if user_id is None:
+        user_id = call.from_user.id
+
+    await state.set_state(MyState.edit_commands)
+
+    text = ask_for_new_commands
+    keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
+    sent_message = await bot.send_message(chat_id=user_id, text=false_msg + text, reply_markup=keyboard)
+    await state.update_data(form_message=sent_message.message_id)
+    await state.update_data(message_id=sent_message.message_id)
+
+    data = await state.get_data()
+    await start_action(user_id, data.get("main_message_id"), data.get("message_id"))
+
+
 # Запрашиваем языки
 @dp.callback_query(F.data.in_({"edit_name_geo", "edit_description_geo"}))
 async def ask_for_lang(call: CallbackQuery, state: FSMContext):
@@ -203,10 +245,9 @@ async def ask_for_lang(call: CallbackQuery, state: FSMContext):
     await start_action(chat_id, data.get("main_message_id"), None)
 
 
-
 # Запрашиваем описание
 @dp.callback_query(F.data.in_({"edit_description_simple"}))
-async def ask_for_desc(call, state: FSMContext, user_id=None, false_msg="", current_state=None):
+async def ask_for_desc(call: CallbackQuery, state: FSMContext, user_id=None, false_msg=""):
     """
 
     :param false_msg:
@@ -219,11 +260,7 @@ async def ask_for_desc(call, state: FSMContext, user_id=None, false_msg="", curr
     if user_id is None:
         user_id = call.from_user.id
 
-    if current_state is None:
-        if call.data == "edit_description_simple":
-            await state.set_state(MyState.edit_description)
-    else:
-        await state.set_state(current_state)
+    await state.set_state(MyState.edit_description)
 
     text = ask_for_new_desc
     keyboard = create_inline_keyboard([InlineKeyboardButton(text=cancel_text, callback_data="cancel")])
@@ -268,6 +305,59 @@ async def ask_for_name(call, state: FSMContext, user_id=None, false_msg="", curr
     await start_action(user_id, data.get("main_message_id"), data.get("message_id"))
 
 
+# Проверка и сохранение новых команд бота
+@dp.message(StateFilter(MyState.edit_commands))
+async def handle_commands_input(message: types.Message, state: FSMContext):
+    """
+
+    :param message:
+    :param state:
+    :return:
+    """
+
+    def validate_commands(commands_message: str):
+        # Разделяем сообщение на строки
+        lines = commands_message.split("\n")
+        # Проверяем количество команд
+        if not (1 <= len(lines) <= 100):
+            return False, f"Количество команд должно быть от 1 до 100, найдено: {len(lines)}"
+
+        # Регулярное выражение для проверки строки
+        pattern = r"^[a-z]{1,32}\s-\s.{1,256}$"
+
+        for index, line in enumerate(lines, start=1):
+            if not re.match(pattern, line):
+                return False, "Ошибка формата!\n"
+
+        # Если все строки валидны
+        return True, ""
+
+    chat_id = message.chat.id
+    text = message.text.strip()
+    data = await state.get_data()
+
+    is_valid, validate_message = validate_commands(text)
+
+    if not is_valid:
+        await bot.delete_message(chat_id, message.message_id)
+        await bot.delete_message(chat_id, data.get("form_message"))
+        await ask_for_commands(None, state, chat_id, validate_message)
+        return
+
+    # Успешно! Дальше просим токен
+
+    last_bot_msg = data.get("message_id")
+
+    await bot.delete_message(chat_id, last_bot_msg)
+    await bot.delete_message(chat_id, message.message_id)
+
+    await state.update_data(commands=text)
+
+    # Запоминаем, для чего нам token
+    await state.update_data(last_state='commands')
+    await ask_for_token(chat_id, state)
+
+
 # Проверка и сохранение нового названия бота/чата/канала
 @dp.message(StateFilter(MyState.edit_description))
 async def handle_desc_input(message: types.Message, state: FSMContext):
@@ -280,12 +370,11 @@ async def handle_desc_input(message: types.Message, state: FSMContext):
     chat_id = message.chat.id
     text = message.text.strip()
     data = await state.get_data()
-    current_state = await state.get_state()
 
-    if current_state == MyState.edit_description and not (1 <= len(text) <= 512):
+    if not (1 <= len(text) <= 512):
         await bot.delete_message(chat_id, message.message_id)
         await bot.delete_message(chat_id, data.get("form_message"))
-        await ask_for_desc(None, state, chat_id, symbol_limit(512), current_state)
+        await ask_for_desc(None, state, chat_id, symbol_limit(512))
         return
 
     # Успешно! Дальше просим токен
@@ -298,9 +387,8 @@ async def handle_desc_input(message: types.Message, state: FSMContext):
     await state.update_data(desc=text)
 
     # Запоминаем, для чего нам token
-    if current_state == MyState.edit_description:
-        await state.update_data(last_state='desc')
-        await ask_for_token(chat_id, state)
+    await state.update_data(last_state='desc')
+    await ask_for_token(chat_id, state)
 
 
 # Проверка и сохранение нового названия бота/чата/канала
@@ -454,25 +542,33 @@ async def handle_token_input(message: types.Message, state: FSMContext):
     await bot.delete_message(chat_id, data.get("message_id"))
     selected = user_selected_languages.get(chat_id, [])
     if len(selected) > 0:
-        addition = f' Для языков {", ".join(list(filter(lambda x: x[1] == lang, flag_buttons))[0][0] for lang in selected)}'
+        lang_addition = f' Для языков {", ".join(list(filter(lambda x: x[1] == lang, flag_buttons))[0][0] for lang in selected)}'
     else:
-        addition = ''
+        lang_addition = ''
 
     if last_state == 'name':
         change_type = 'Название'
-        bot_name = data.get("name")
-        task = asyncio.create_task(change_bot_data(token, bot_name, selected, type='name'))
+        changed_value = data.get("name")
+        end_symb = 'о'
+        task = asyncio.create_task(change_bot_data(token, changed_value, selected, type='name'))
 
     elif last_state == 'desc':
         change_type = 'Описание'
-        bot_name = data.get("desc")
-        task = asyncio.create_task(change_bot_data(token, bot_name, selected, type='desc'))
+        changed_value = data.get("desc")
+        end_symb = 'о'
+        task = asyncio.create_task(change_bot_data(token, changed_value, selected, type='desc'))
+
+    elif last_state == 'commands':
+        change_type = 'Команды'
+        changed_value = data.get("commands")
+        end_symb = 'ы'
+        task = asyncio.create_task(change_bot_data(token, changed_value, selected, type='commands'))
 
     # Ожидаем завершения задач
     result = await asyncio.gather(task)
 
     if result[0][0]:
-        result_text = f"✅ Успех! {change_type} <a href='{result[0][1]}'>бота</a> обновлено на: {bot_name}" + addition
+        result_text = f"✅ Успех! {change_type} <a href='{result[0][1]}'>бота</a> обновлен{end_symb} на: {changed_value}" + lang_addition
 
     else:
 
